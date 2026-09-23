@@ -1,0 +1,53 @@
+
+--------------------------------------------------------Silver Layer---------------------------------------------------------------------------
+
+                        ----------------------------Data Exploration---------------------------------
+
+
+--TOTAL ROWS & CLOUMN--
+
+SELECT * FROM uci_sales;
+
+
+--DATATPYE--
+
+EXEC sp_help uci_sales;
+
+
+--NULL ROWS COUNT------
+
+SELECT 
+	 SUM(CASE WHEN Description IS NULL OR CAST(Description as VARCHAR(MAX)) = ' ' THEN 1 ELSE 0 END) AS NULL_Des,
+	 SUM(CASE WHEN UnitPrice IS NULL OR UnitPrice = ' ' THEN 1 ELSE 0 END) AS NULL_price,
+	 SUM(CASE WHEN CustomerID IS NULL OR CustomerID  = ' ' THEN 1 ELSE 0 END) AS NULL_cust
+FROM uci_sales;
+
+SELECT * FROM
+	uci_sales
+	WHERE  Description IS NULL OR CAST(Description as VARCHAR(MAX)) = ' ' ;
+
+
+--Min&Max Date-----------
+
+SELECT MIN (InvoiceDate) AS MinDate,MAX (InvoiceDate) AS MaxDate
+FROM uci_sales;
+
+
+--Cancelletion Record-----
+
+SELECT * FROM uci_sales
+WHERE InvoiceNo LIKE '%C%';   
+
+
+--Unique Customers---------
+
+SELECT COUNT(DISTINCT CustomerID) FROM uci_sales
+
+
+--Unique Country--------
+
+SELECT DISTINCT Country FROM uci_sales
+
+--Unique Stockcode--------
+
+SELECT DISTINCT StockCode, Description  FROM uci_sales
