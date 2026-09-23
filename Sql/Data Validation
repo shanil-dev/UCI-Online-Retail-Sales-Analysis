@@ -1,0 +1,347 @@
+-- CREATING A VIEW FOR CLEANED DATE-----
+
+
+
+;CREATE VIEW clean_transonly AS
+SELECT 
+    InvoiceNo,
+    StockCode,
+    Description,
+    Quantity,
+    InvoiceDate,
+    UnitPrice,
+    CustomerID,
+    Country
+FROM uci_sales
+WHERE 
+   UnitPrice > 0
+  AND Quantity > 0
+  ;
+
+
+------------------------------------- DATA VALIDATION----------------------------------------------
+
+
+--SALES----
+
+
+--Overall Sales Performance
+
+SELECT FORMAT(SUM(Quantity * UnitPrice)/1000,'#,00.0'+'K') AS Revenue, 
+CONCAT((SUM(Quantity)/1000),'K') AS TotalUnitSold,
+CONCAT(COUNT(DISTINCT InvoiceNo)/1000,'K') AS TotalOrders
+FROM uci_sales
+WHERE 
+Quantity > 0
+AND
+UnitPrice > 0
+AND 
+InvoiceNo NOT LIKE '%C%'
+
+
+SELECT FORMAT(SUM(Quantity * UnitPrice)/1000.0,'#,00.0'+'K') AS Revenue 
+FROM clean_transonly
+
+
+--SALE TREND OVER TIME
+
+SELECT FORMAT(SUM(Quantity * UnitPrice)/1000.0,'#,00.0'+'K') AS Revenue,FORMAT(InvoiceDate,'MM-yyyy') as Month
+FROM clean_transonly
+GROUP BY FORMAT(InvoiceDate,'MM-yyyy')
+ORDER BY MIN(InvoiceDate)
+
+
+--MONTH WITH LOWEST REVENUE---
+
+SELECT FORMAT(SUM(Quantity * UnitPrice)/1000,'#,00.0')+'K' AS Revenue,FORMAT(InvoiceDate,'MM-yyyy') as MOnth
+FROM clean_transonly
+GROUP BY FORMAT(InvoiceDate,'MM-yyyy') 
+ORDER BY SUM(Quantity * UnitPrice) ASC
+OFFSET 0 ROWS
+FETCH NEXT 1 ROWS ONLY
+
+
+--ORDER,QUANTITY,REVENUE OF LOWEST MONTH
+
+SELECT FORMAT(SUM(Quantity * UnitPrice)/1000,'#,00.0'+'K') AS Revenue, 
+CONCAT((SUM(Quantity)/1000),'K') AS TotalUnitSold,
+COUNT(DISTINCT InvoiceNo) AS TotalOrders,
+FORMAT(InvoiceDate,'MM-yyyy') As Date
+FROM clean_transonly
+WHERE FORMAT(InvoiceDate,'MM-yyyy') ='04-2011'
+GROUP BY FORMAT(InvoiceDate,'MM-yyyy') 
+--ORDER BY SUM(Quantity * UnitPrice)/1000.0 ASC
+
+
+--MoM Sale Diff and Growth
+
+SELECT  YEAR(InvoiceDate) AS YEAR,
+	   MONTH(InvoiceDate) AS MONTH,
+        ROUND(SUM(Quantity * UnitPrice),2) As Revenue ,
+	   ISNULL(FORMAT(LAG(SUM(Quantity * UnitPrice),1) OVER( ORDER BY YEAR(InvoiceDate),MONTH(InvoiceDate))/1000.0,'#,0K'),'No Previous Sales') AS PreviouMonthSale,
+
+
+	  ISNULL( FORMAT((SUM(Quantity * UnitPrice) - NULLIF(LAG(SUM(Quantity * UnitPrice),1) OVER( ORDER BY YEAR(InvoiceDate),MONTH(InvoiceDate)),0))/1000.0,'#0,0K'),'No Previous Sales')AS SALEDIFF,
+
+	  ISNULL(FORMAT( (( SUM(Quantity * UnitPrice) - NULLIF(LAG(SUM(Quantity * UnitPrice),1) OVER( ORDER BY YEAR(InvoiceDate),MONTH(InvoiceDate)),0))* 100.0)
+	   / NULLIF(LAG(SUM(Quantity * UnitPrice),1) OVER( ORDER BY YEAR(InvoiceDate),MONTH(InvoiceDate)),0) ,'#0.0')+'%','N0 Previous MonthSale') AS MoMGrowth
+	  
+FROM clean_transonly
+GROUP BY YEAR(InvoiceDate),
+	   MONTH(InvoiceDate)
+
+
+;WITH MonthlySales AS (
+    SELECT 
+        YEAR(InvoiceDate) AS [Year],
+        MONTH(InvoiceDate) AS [Month],
+        ROUND(SUM(Quantity * UnitPrice), 2) AS Revenue
+    FROM clean_transonly
+    GROUP BY 
+        YEAR(InvoiceDate),
+        MONTH(InvoiceDate)
+)
+SELECT 
+    [Year],
+    [Month],
+    Revenue,
+    LAG(Revenue, 1) OVER (ORDER BY [Year], [Month]) AS PreviousMonthSale,
+    Revenue - LAG(Revenue, 1) OVER (ORDER BY [Year], [Month]) AS SaleDiff,
+    ROUND(
+        ((Revenue - LAG(Revenue, 1) OVER (ORDER BY [Year], [Month])) * 100.0) 
+        / NULLIF(LAG(Revenue, 1) OVER (ORDER BY [Year], [Month]), 0), 
+    2) AS MoMGrowth
+FROM MonthlySales
+ORDER BY [Year], [Month];
+
+
+
+---MoM Order Diff & Growth
+
+;With Orders As (
+   SELECT YEAR(InvoiceDate) As YEAR,
+          MONTH(InvoiceDate) As MONTH,
+          COUNT(DISTINCT InvoiceNo) As TotalOrders
+   FROM clean_transonly
+   GROUP BY YEAR(InvoiceDate) ,
+          MONTH(InvoiceDate)
+          )
+
+
+SELECT YEAR,MONTH,TotalOrders,
+       ISNULL(FORMAT(LAG(TotalOrders,1) OVER(ORDER BY YEAR,MONTH)/1000.0,'#.0K'),'NoPreviousOrders') AS PreviousMonthOrders,
+
+      ISNULL(FORMAT((TotalOrders - (LAG(TotalOrders,1) OVER(ORDER BY YEAR,MONTH)))/1000.0,'#.0K'),'NoPreviousMonthOrders') as OrderDiff,
+
+
+      ISNULL(FORMAT((TotalOrders - LAG(TotalOrders,1) OVER(ORDER BY YEAR,MONTH))*100.0
+      /NULLIF(LAG(TotalOrders,1) OVER(ORDER BY YEAR,MONTH),0),'#0.0')+'%','NoPreviousMonthOrders') as MoM_Growth
+       
+FROM Orders
+ORDER BY YEAR,MONTH
+
+
+
+
+--MoM Quantity Sold Diff & Growth
+
+
+;With Sold As (
+   SELECT YEAR(InvoiceDate) As YEAR,
+          MONTH(InvoiceDate) As MONTH,
+          SUM(Quantity) As TotalSold
+   FROM clean_transonly
+   GROUP BY YEAR(InvoiceDate) ,
+          MONTH(InvoiceDate)
+          )
+
+
+SELECT YEAR,MONTH,TotalSold,
+       ISNULL(FORMAT(LAG(TotalSold,1) OVER(ORDER BY YEAR,MONTH)/1000.0,'#.0K'),'NoPreviousOrders') AS PreviousMonthOrders,
+
+      ISNULL(FORMAT((TotalSold - (LAG(TotalSold,1) OVER(ORDER BY YEAR,MONTH)))/1000.0,'#.0K'),'NoPreviousMonthOrders') as OrderDiff,
+
+
+      ISNULL(FORMAT((TotalSold - LAG(TotalSold,1) OVER(ORDER BY YEAR,MONTH))*100.0
+      /NULLIF(LAG(TotalSold,1) OVER(ORDER BY YEAR,MONTH),0),'#0.0')+'%','NoPreviousMonthOrders') as MoM_Growth
+       
+FROM Sold
+ORDER BY YEAR,MONTH
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------
+
+--PRODUCT PERFORMANCE--
+
+--LEAST PERFORMING PRODUCT--
+
+SELECT SUM(Quantity * UnitPrice) AS Revenue, 
+SUM(Quantity) AS TotalUnitSold,
+COUNT(DISTINCT InvoiceNo) AS TotalOrders,
+StockCode
+FROM clean_transonly
+GROUP BY StockCode
+ORDER BY SUM(Quantity * UnitPrice) ASC     --By Reveneue
+
+SELECT SUM(Quantity * UnitPrice) AS Revenue, 
+SUM(Quantity) AS TotalUnitSold,
+COUNT(DISTINCT InvoiceNo) AS TotalOrders,
+StockCode
+FROM clean_transonly
+GROUP BY StockCode
+HAVING COUNT(InvoiceNo) <= 1
+ORDER BY TotalOrders ASC      --By Orders
+
+SELECT SUM(Quantity * UnitPrice) AS Revenue, 
+SUM(Quantity) AS TotalUnitSold,
+COUNT(DISTINCT InvoiceNo) AS TotalOrders,
+StockCode
+FROM clean_transonly
+GROUP BY StockCode
+HAVING SUM(Quantity) <= 1
+ORDER BY TotalOrders ASC      --By Quantity Sold
+
+
+--MOST ITEM IN DEMAND
+
+SELECT TOP 1 StockCode,SUM(Quantity) As TotalUnitSold FROM clean_transonly
+GROUP BY StockCode
+ORDER BY TotalUnitSold DESC
+
+
+--SALE TREND OF TOP 10 PRODUCT--
+
+SELECT Revenue, Date, Month ,StockCode, rn
+FROM
+( SELECT SUM(Quantity * UnitPrice) AS Revenue,
+FORMAT(InvoiceDate,'MM-yyyy') as Date,
+Month(InvoiceDate) as Month,
+YEAR(InvoiceDate) as Year,
+StockCode,
+ROW_NUMBER() OVER(PARTITION BY FORMAT(InvoiceDate,'MM-yyyy') ORDER BY SUM(Quantity * UnitPrice) DESC) AS rn
+FROM clean_transonly
+GROUP BY YEAR(InvoiceDate),FORMAT(InvoiceDate,'MM-yyyy') ,Month(InvoiceDate) ,StockCode) t
+
+WHERE t.rn <= 10
+ORDER BY YEAR ASC,Date, Month ,rn 
+
+
+--------------------------------------------------------------------------------------------------------
+
+--CUSTOMER--
+
+--CUSTOMER CONDRIBUTED TO HIGHEST REVENUE
+
+SELECT TOP 1 CustomerID,
+SUM(Quantity * UnitPrice) AS Revenue
+FROM clean_transonly
+WHERE CustomerID <> 'Unknown'
+GROUP BY CustomerID
+ORDER BY Revenue DESC                   --Null Customer id is not considered
+
+
+--- TOTAL CUSTOMER BASE
+
+SELECT COUNT(DISTINCT CustomerID) as TotalCustomerID
+FROM clean_transonly
+
+
+
+----AVERAGE REVENUE PER CUSTOMER
+
+SELECT ROUND(SUM(Quantity * UnitPrice),2) AS Revenue,
+COUNT(DISTINCT CustomerID) as TotalCustomerID,
+FORMAT(ROUND(SUM(Quantity * UnitPrice)/COUNT(DISTINCT CustomerID),2),'C') as AverageRevenuePerCustomer
+FROM clean_transonly
+WHERE CustomerID <>'Unknown'
+
+--SINGLE PURCHASE CUSTOMER
+
+SELECT CustomerID
+FROM clean_transonly
+GROUP BY CustomerID 
+HAVING Count(DISTINCT InvoiceNo)=1
+
+
+--------------------------------------------------------------------------------------------
+
+--GEOGRAPHIC ANALYSIS
+
+
+--MOST REVENUE GENERATE COUNTRY
+
+SELECT TOP 1 Country,ROUND(SUM(Quantity * UnitPrice),2) AS Revenue
+FROM clean_transonly
+GROUP BY Country
+ORDER BY Revenue DESC
+
+
+--TOTAL ORDERS,CUSTOMER AND QUANTITY SOLD BY EACH COUNTRY
+
+SELECT Country, SUM(Quantity) As TotalItemSold,
+Count( DISTINCT InvoiceNo) as TotalOrders,
+COUNT(DISTINCT(CustomerID)) as Customer
+FROM clean_transonly
+GROUP BY Country
+ORDER BY TotalItemSold DESC
+
+
+--MOST DEMANDED PRODUCT IN EACH COUNTRY
+
+With order1 As
+(SELECT Country, SUM(Quantity) As TotalItemSold,
+StockCode,
+ROW_NUMBER() OVER(PARTITION BY Country ORDER BY SUM(Quantity) DESC) as rn
+FROM clean_transonly
+GROUP BY Country,StockCode
+)
+
+SELECT Country,TotalItemSold,StockCode,rn
+FROM order1
+WHERE rn <= 10
+ORDER BY TotalItemSold Desc,rn Desc,Country
+
+
+
+---------------------------------------------------------------------------------------------------------
+
+--CANCELLETION ANALYSIS
+
+
+--ITEM WITH HIGHEST NUMBER OF CANCELLETION
+
+SELECT TOP 5 StockCode ,COUNT(InvoiceNo) As TotalOrders,ROUND(SUM(Quantity * UnitPrice),2) AS LostRevenue,
+SUM(Quantity) as TotalReturned,UnitPrice
+FROM uci_sales
+WHERE InvoiceNo LIKE '%C%'
+GROUP BY StockCode ,UnitPrice
+ORDER BY TotalReturned ASC
+
+
+--ITEM WITH MOST REVENUE LOST BY CANCELLETION
+
+SELECT TOP 5 StockCode ,COUNT( DISTINCT InvoiceNo) As TotalOrders,ROUND(SUM(Quantity * UnitPrice),2) AS LostRevenue,
+SUM(Quantity) as TotalReturned,UnitPrice
+FROM uci_sales
+WHERE InvoiceNo LIKE '%C%'
+GROUP BY StockCode ,UnitPrice
+ORDER BY LostRevenue ASC
+
+
+--Overal Cancelletion Rate--
+
+SELECT COUNT(DISTINCT InvoiceNo) as TotalOrders,
+	   COUNT(DISTINCT CASE WHEN InvoiceNo LIKE '%C%' THEN InvoiceNo END ) as CancelledOrders,
+       CONCAT( 
+	   (CAST(COUNT(DISTINCT CASE WHEN InvoiceNo LIKE '%C%' THEN InvoiceNo END )AS FLOAT)/COUNT(DISTINCT InvoiceNo))*100 
+	   ,'%') as CancelledRate
+FROM uci_sales
+
+
+--Cancelled Quantity
+
+SELECT 
+		SUM( CASE 
+		      WHEN InvoiceNo Like '%C%' THEN ABS(Quantity) ELSE 0 END) as CanceledQuantity
+        FROM uci_sales
