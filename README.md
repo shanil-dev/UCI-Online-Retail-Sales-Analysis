@@ -5,12 +5,12 @@
 An end-to-end analysis of online retail transactions to understand sales performance, customer contribution, product performance, geographic performance, and cancellations
 
 
-Business Problem
+**Business Problem**
 
 Management wants to understand sales performance, customer contribution, product performance, geographic performance, and cancellation patterns to identify areas requiring further investigation.
 
 
-**Business Objectives**
+****Business Objectives****
 
 * Evaluate overall revenue performance
 * Analyze sales trends
