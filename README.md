@@ -11,7 +11,7 @@ An end-to-end analysis of online retail transactions to understand sales perform
 Management wants to understand sales performance, customer contribution, product performance, geographic performance, and cancellation patterns to identify areas requiring further investigation.
 
 
-****Business Objectives****
+**Business Objectives**
 
 * Evaluate overall revenue performance
 * Analyze sales trends
@@ -21,7 +21,7 @@ Management wants to understand sales performance, customer contribution, product
 * Analyze cancellation patterns
 
 
-** Business Question**
+**Business Question**
 
 * How is the overall sale performance changing over time
 * Which product and countries contributed the most to revenue
