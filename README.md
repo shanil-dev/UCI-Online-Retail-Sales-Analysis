@@ -1,5 +1,6 @@
 # UCI-Online-Retail-Sales-Analysis
 
+
 **Project Overview**
 
 An end-to-end analysis of online retail transactions to understand sales performance, customer contribution, product performance, geographic performance, and cancellations
@@ -20,7 +21,7 @@ Management wants to understand sales performance, customer contribution, product
 * Analyze cancellation patterns
 
 
- Business Question
+** Business Question**
 
 * How is the overall sale performance changing over time
 * Which product and countries contributed the most to revenue
