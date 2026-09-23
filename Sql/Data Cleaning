@@ -1,0 +1,60 @@
+
+--------------------------------------------------------CLEANING--------------------------------------------------------------------
+
+ --DATE---
+
+ ALTER TABLE uci_sales
+ ALTER COLUMN InvoiceDate DATE; --Removed unwanted zeros
+
+ 
+ --CUSTOMER NULL VALUES--
+
+ SELECT InvoiceNo , CustomerID
+ FROM uci_sales
+ GROUP BY InvoiceNo,CustomerID
+ ORDER BY InvoiceNo
+
+ ALTER TABLE uci_sales
+ ALTER COLUMN CustomerID VARCHAR(50)
+ Update uci_sales
+ SET CustomerID = 'Unknown'
+ WHERE CustomerID IS NULL
+
+
+ --FILLING AVAILABLE DESCRIPTION--
+
+ With stock AS (
+ SELECT StockCode , Description ,
+ (CASE WHEN Description IS NULL OR Description = '' THEN 0 ELSE 1 END) AS Value_Check
+ FROM uci_sales
+ GROUP BY StockCode , Description)
+
+ UPDATE t
+ SET t.Description = stock.Description
+ FROM uci_sales t
+ INNER JOIN stock 
+ ON t.StockCode = stock.StockCode AND Value_Check = 1
+ WHERE t.Description IS NULL; 
+
+
+ --FILLING AVAILABLE NULL PRICE--
+
+ SELECT ROUND(UnitPrice,2),StockCode,(CASE WHEN UnitPrice IS NULL OR UnitPrice =''THEN 0 ELSE 1 END) AS Value 
+ FROM uci_sales
+ GROUP BY UnitPrice,StockCode
+ ORDER BY StockCode
+
+;WITH  RecentPrice AS  (
+     SELECT ROUND(UnitPrice,2) As Price,StockCode, ROW_NUMBER() OVER(PARTITION BY StockCode ORDER BY COUNT(*) DESC ) AS rn
+	 FROM uci_sales
+	 WHERE UnitPrice > 0
+	 GROUP BY UnitPrice,StockCode
+	 )
+
+UPDATE t
+SET t.UnitPrice = p.Price
+FROM uci_sales t
+INNER JOIN RecentPrice p
+	ON t.StockCode = p.StockCode
+	AND p.rn = 1
+WHERE t.UnitPrice IS NULL OR t.UnitPrice =0 ;
