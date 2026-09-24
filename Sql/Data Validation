@@ -170,6 +170,36 @@ ORDER BY YEAR,MONTH
 
 
 
+--Average Order Value---
+
+;WITH SUM1 AS (SELECT  COUNT(Distinct InvoiceNo) AS Orders ,SUM(Quantity * UnitPrice) as Revenue
+FROM  clean_transonly)
+
+SELECT AVG(s.Revenue /s.orders ) AS AOV
+FROM SUM1 s
+
+
+
+--Average Revenue per Month--
+
+SELECT ROUND(AVG(Revenue) OVER(PARTITION BY MOnth),2) as Avg_Monthly,Month,Year
+FROM( 
+     SELECT SUM(Quantity * UnitPrice) as Revenue,MONTH(InvoiceDate) as Month,Year(InvoiceDate) as Year
+	 FROM clean_transonly
+	 GROUP BY  Year(InvoiceDate), MONTH(InvoiceDate)) as t
+ORDER BY Year, Month;
+
+
+
+--Average AOV per Month--
+
+SELECT  Datename (mm,InvoiceDate) as Month, Month(InvoiceDate) as MonthNo,Year(InvoiceDate) as Year, COUNT(Distinct InvoiceNo) AS Orders ,SUM(Quantity * UnitPrice) as Revenue,ROUND( (SUM(Quantity * UnitPrice)/COUNT(Distinct InvoiceNo)),2) as MonthlyAOV
+FROM  clean_transonly
+GROUP BY Datename (mm,InvoiceDate),Year(InvoiceDate),Month(InvoiceDate) 
+ORDER BY Year,MonthNo
+
+
+
 ---------------------------------------------------------------------------------------------------------------------------------
 
 --PRODUCT PERFORMANCE--
